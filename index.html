@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>给猫猫刷毛毛</title>
+    <style>
+        body {
+            margin: 0;
+            background-color: #f7ebd3;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            touch-action: manipulation;
+        }
+        #game-container {
+            text-align: center;
+            position: relative;
+        }
+        #score-area {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+        }
+        .score-box {
+            text-align: center;
+        }
+        .score-label {
+            font-size: 14px;
+            color: #8d6e63;
+            margin-bottom: 4px;
+        }
+        #score, #high-score {
+            font-size: 28px;
+            font-weight: bold;
+            color: #6d4c41;
+        }
+        #high-score {
+            color: #a1887f;
+        }
+        #cat {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 80px;
+            background-color: #ffb74d;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            transition: transform 0.1s, background-color 0.2s;
+            cursor: pointer;
+        }
+        #cat.brushing {
+            transform: scale(1.05) rotate(2deg);
+        }
+        #status-text {
+            margin-top: 20px;
+            font-size: 20px;
+            color: #5d4037;
+            height: 30px;
+        }
+        #restart-btn {
+            margin-top: 15px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #8d6e63;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+        #restart-btn:active {
+            background-color: #6d4c41;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="score-area">
+        <div class="score-box">
+            <div class="score-label">得分</div>
+            <div id="score"><span id="score-val">0</span></div>
+        </div>
+        <div class="score-box">
+            <div class="score-label">最高分</div>
+            <div id="high-score"><span id="high-score-val">0</span></div>
+        </div>
+    </div>
+    <div id="cat">🐱</div>
+    <div id="status-text">长按给猫刷毛！</div>
+    <button id="restart-btn">重新挑战</button>
+</div>
+
+<script>
+    const bgmSafe = new Audio('bgm/safe.ogg');
+    const bgmDanger = new Audio('bgm/danger.ogg');
+    const bgmBitten = new Audio('bgm/bitten.ogg');
+    bgmSafe.loop = true;
+    bgmDanger.loop = true;
+    bgmBitten.loop = false;
+
+    let currentBgm = null;
+
+    function playBgm(audio) {
+        if (currentBgm && currentBgm !== audio) {
+            currentBgm.pause();
+            if (currentBgm === bgmBitten) {
+                currentBgm.currentTime = 0;
+            }
+        }
+        if (audio && audio !== currentBgm) {
+            if (audio === bgmBitten) {
+                audio.currentTime = 0;
+            }
+            audio.play().catch(() => {});
+        }
+        currentBgm = audio;
+    }
+
+    function pauseAllBgm() {
+        [bgmSafe, bgmDanger, bgmBitten].forEach(audio => {
+            audio.pause();
+        });
+        currentBgm = null;
+    }
+
+    function stopAllBgm() {
+        [bgmSafe, bgmDanger, bgmBitten].forEach(audio => {
+            audio.pause();
+            audio.currentTime = 0;
+        });
+        currentBgm = null;
+    }
+
+    let score = 0;
+    let highScore = 0;
+    let isGameOver = false;
+    let isBrushing = false;
+    let catState = 'SAFE';
+    
+    const catEl = document.getElementById('cat');
+    const scoreValEl = document.getElementById('score-val');
+    const highScoreValEl = document.getElementById('high-score-val');
+    const statusTextEl = document.getElementById('status-text');
+    const restartBtn = document.getElementById('restart-btn');
+
+    const EMOJIS = {
+        SAFE: '🐱',
+        WARNING: '😼',
+        DANGER: '😾',
+        BITTEN: '🐯'
+    };
+
+    let stateLogicTimeout = null;
+    let warningTimeout = null;
+    let dangerEndTimeout = null;
+    let scoreInterval = null;
+
+    function loadHighScore() {
+        try {
+            const saved = localStorage.getItem('catBrushHighScore');
+            if (saved !== null) {
+                highScore = parseInt(saved, 10) || 0;
+                highScoreValEl.textContent = highScore;
+            }
+        } catch(e) {}
+    }
+
+    function saveHighScore() {
+        try {
+            localStorage.setItem('catBrushHighScore', String(highScore));
+        } catch(e) {}
+    }
+
+    function getDifficultyTimings() {
+        const safeMin = Math.max(800, 1500 - score * 8);
+        const safeMax = Math.max(1500, 3500 - score * 15);
+        const warningMin = Math.max(250, 500 - score * 2);
+        const warningMax = Math.max(350, 600 - score * 2);
+        const dangerMin = Math.min(1800, 800 + score * 8);
+        const dangerMax = Math.min(2500, 1800 + score * 10);
+        return {
+            safeDelay: Math.random() * (safeMax - safeMin) + safeMin,
+            warningDuration: Math.random() * (warningMax - warningMin) + warningMin,
+            dangerDuration: Math.random() * (dangerMax - dangerMin) + dangerMin
+        };
+    }
+
+    function startCatAI() {
+        if (isGameOver) return;
+        clearTimeout(stateLogicTimeout);
+        
+        const { safeDelay, warningDuration, dangerDuration } = getDifficultyTimings();
+        
+        stateLogicTimeout = setTimeout(() => {
+            if (isGameOver) return;
+
+            if (catState === 'SAFE') {
+                catState = 'WARNING';
+                catEl.textContent = EMOJIS.WARNING;
+                catEl.style.backgroundColor = '#ffd54f';
+                statusTextEl.textContent = '！！猫猫要回头了！';
+
+                clearTimeout(warningTimeout);
+                warningTimeout = setTimeout(() => {
+                    if (catState === 'WARNING' && !isGameOver) {
+                        catState = 'DANGER';
+                        catEl.textContent = EMOJIS.DANGER;
+                        catEl.style.backgroundColor = '#e57373';
+                        statusTextEl.textContent = '别动！！！猫猫生气了！';
+                        playBgm(bgmDanger);
+
+                        clearTimeout(dangerEndTimeout);
+                        dangerEndTimeout = setTimeout(() => {
+                            if (catState === 'DANGER' && !isGameOver) {
+                                catState = 'SAFE';
+                                catEl.textContent = EMOJIS.SAFE;
+                                catEl.style.backgroundColor = '#ffb74d';
+                                statusTextEl.textContent = '安全，继续刷毛...';
+                                if (isBrushing) {
+                                    playBgm(bgmSafe);
+                                } else {
+                                    pauseAllBgm();
+                                }
+                                startCatAI();
+                            }
+                        }, dangerDuration);
+                    }
+                }, warningDuration);
+            } else {
+                startCatAI();
+            }
+        }, safeDelay);
+    }
+
+    function startBrushing() {
+        if (isGameOver) return;
+        if (isBrushing) return;
+        isBrushing = true;
+        catEl.classList.add('brushing');
+
+        playBgm(bgmSafe);
+
+        clearInterval(scoreInterval);
+        scoreInterval = setInterval(() => {
+            if (catState === 'SAFE') {
+                score++;
+                scoreValEl.textContent = score;
+            } else if (catState === 'DANGER') {
+                triggerGameOver();
+            }
+        }, 100);
+    }
+
+    function stopBrushing() {
+        if (!isBrushing) return;
+        isBrushing = false;
+        catEl.classList.remove('brushing');
+        clearInterval(scoreInterval);
+        scoreInterval = null;
+        if (!isGameOver) {
+            pauseAllBgm();
+        }
+    }
+
+    function triggerGameOver() {
+        isGameOver = true;
+        clearInterval(scoreInterval);
+        scoreInterval = null;
+        clearTimeout(stateLogicTimeout);
+        clearTimeout(warningTimeout);
+        clearTimeout(dangerEndTimeout);
+
+        let isNewRecord = false;
+        if (score > highScore) {
+            highScore = score;
+            highScoreValEl.textContent = highScore;
+            saveHighScore();
+            isNewRecord = true;
+        }
+
+        catState = 'BITTEN';
+        catEl.textContent = EMOJIS.BITTEN;
+        catEl.style.backgroundColor = '#b71c1c';
+        statusTextEl.textContent = isNewRecord ? '新纪录！你被猫猫吃掉了！' : '你被猫猫吃掉了！游戏结束。';
+        restartBtn.style.display = 'inline-block';
+        playBgm(bgmBitten);
+    }
+
+    function resetGame() {
+        score = 0;
+        isGameOver = false;
+        isBrushing = false;
+        catState = 'SAFE';
+
+        scoreValEl.textContent = score;
+        catEl.textContent = EMOJIS.SAFE;
+        catEl.style.backgroundColor = '#ffb74d';
+        statusTextEl.textContent = '长按给猫刷毛！';
+        restartBtn.style.display = 'none';
+
+        stopAllBgm();
+        startCatAI();
+    }
+
+    loadHighScore();
+
+    catEl.addEventListener('mousedown', (e) => { e.preventDefault(); startBrushing(); });
+    window.addEventListener('mouseup', stopBrushing);
+
+    catEl.addEventListener('touchstart', (e) => { e.preventDefault(); startBrushing(); }, { passive: false });
+    window.addEventListener('touchend', stopBrushing);
+    window.addEventListener('touchcancel', stopBrushing);
+
+    restartBtn.addEventListener('click', resetGame);
+
+    startCatAI();
+</script>
+
+</body>
+</html>
