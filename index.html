@@ -259,6 +259,11 @@
     let isGameOver = false;
     let isBrushing = false;
     let catState = 'SAFE';
+    let warningStartTime = 0;
+    let warningDuration = 0;
+    let dangerDuration = 0;
+    let dangerEdgeCount = 0;
+    let safeStreak = 0;
     
     const catEl = document.getElementById('cat');
     const scoreValEl = document.getElementById('score-val');
@@ -313,41 +318,56 @@
             bonusDuration: Math.random() * (bonusMax - bonusMin) + bonusMin
         };
     }
-
-    function enterDanger(warningDuration, dangerDuration) {
+    function enterDanger(w, d) {
         catState = 'WARNING';
         catEl.textContent = EMOJIS.WARNING;
         catEl.style.backgroundColor = '#ffd54f';
         catEl.classList.remove('bonus');
-        statusTextEl.textContent = '！！猫猫要回头了！';
-
+        statusTextEl.textContent = '!!猫猫要回头了！';
+        warningStartTime = Date.now();
+        warningDuration = w;
+        dangerDuration = d;
+        dangerEdgeCount = 0;
         clearTimeout(warningTimeout);
         warningTimeout = setTimeout(() => {
             if (catState === 'WARNING' && !isGameOver) {
-                catState = 'DANGER';
-                catEl.textContent = EMOJIS.DANGER;
-                catEl.style.backgroundColor = '#e57373';
-                statusTextEl.textContent = '别动！！！猫猫生气了！';
-                playBgm(bgmDanger);
-
-                clearTimeout(dangerEndTimeout);
-                dangerEndTimeout = setTimeout(() => {
-                    if (catState === 'DANGER' && !isGameOver) {
-                        catState = 'SAFE';
-                        catEl.textContent = EMOJIS.SAFE;
-                        catEl.style.backgroundColor = '#ffb74d';
-                        catEl.classList.remove('bonus');
-                        statusTextEl.textContent = '安全，继续刷毛...';
-                        if (isBrushing) {
-                            playBgm(bgmSafe);
-                        } else {
-                            pauseAllBgm();
-                        }
-                        startCatAI();
-                    }
-                }, dangerDuration);
+                triggerDangerState();
             }
-        }, warningDuration);
+        }, w);
+    }
+
+    function triggerDangerState() {
+        if (catState !== 'WARNING' || isGameOver) return;
+
+        // if brushing when caught, go straight to game over
+        if (isBrushing) {
+            catState = 'DANGER';
+            triggerGameOver();
+            return;
+        }
+
+        catState = 'DANGER';
+        catEl.textContent = EMOJIS.DANGER;
+        catEl.style.backgroundColor = '#e57373';
+        statusTextEl.textContent = '别动！！！猫猫生气了！';
+        playBgm(bgmDanger);
+        clearTimeout(dangerEndTimeout);
+        dangerEndTimeout = setTimeout(() => {
+            if (catState === 'DANGER' && !isGameOver) {
+                catState = 'SAFE';
+                catEl.textContent = EMOJIS.SAFE;
+                catEl.style.backgroundColor = '#ffb74d';
+                catEl.classList.remove('bonus');
+                statusTextEl.textContent = '安全，继续刷毛...';
+                if (isBrushing) {
+                    playBgm(bgmSafe);
+                } else {
+                    pauseAllBgm();
+                }
+                safeStreak = 0;
+                startCatAI();
+            }
+        }, dangerDuration);
     }
 
     function enterBonus(bonusDuration) {
@@ -416,11 +436,30 @@
         clearInterval(scoreInterval);
         scoreInterval = setInterval(() => {
             if (catState === 'SAFE') {
-                score++;
-                scoreValEl.textContent = score;
+                let streakBonus = Math.min(safeStreak * 0.1, 1.0);
+                score += 1 + streakBonus;
+                                scoreValEl.textContent = Math.floor(score);
+
+                if (safeStreak > 0 && Math.floor(score) % 20 == 0) {
+                    statusTextEl.textContent = '连击 x' + (safeStreak + 1);
+                }
             } else if (catState === 'BONUS') {
-                score += 2;
-                scoreValEl.textContent = score;
+                let streakBonus = Math.min(safeStreak * 0.2, 2.0);
+                score += 2 + streakBonus;
+                                scoreValEl.textContent = Math.floor(score);
+
+            } else if (catState === 'WARNING' && isBrushing) {
+                let streakBonus = Math.min(safeStreak * 0.1, 1.0);
+                score += 1.5 + streakBonus;
+                                scoreValEl.textContent = Math.floor(score);
+
+                dangerEdgeCount++;
+                let elapsed = Date.now() - warningStartTime;
+                let effectiveElapsed = elapsed + (dangerEdgeCount * 50);
+                if (effectiveElapsed >= warningDuration && catState === 'WARNING') {
+                    clearTimeout(warningTimeout);
+                    triggerDangerState();
+                }
             } else if (catState === 'DANGER') {
                 triggerGameOver();
             }
@@ -433,12 +472,42 @@
         catEl.classList.remove('brushing');
         clearInterval(scoreInterval);
         scoreInterval = null;
+
+        if (catState === 'WARNING' && !isGameOver) {
+            clearTimeout(warningTimeout);
+            let elapsed = Date.now() - warningStartTime;
+            let effectiveElapsed = elapsed + (dangerEdgeCount * 50);
+            let remaining = warningDuration - effectiveElapsed;
+            let threshold = warningDuration * 0.25;
+
+            if (remaining > 0 && remaining < threshold) {
+                let bonusScore = Math.max(5, Math.floor((threshold - remaining) / 100) * 5 + 10);
+                score += bonusScore;
+                                scoreValEl.textContent = Math.floor(score);
+
+                statusTextEl.textContent = '好险！完美收手！+' + bonusScore;
+                safeStreak++;
+            } else {
+                safeStreak = 0;
+                statusTextEl.textContent = '安全，继续刷毛...';
+            }
+
+            catState = 'SAFE';
+            catEl.textContent = EMOJIS.SAFE;
+            catEl.style.backgroundColor = '#ffb74d';
+            catEl.classList.remove('bonus');
+            pauseAllBgm();
+            startCatAI();
+            return;
+        }
+
         if (!isGameOver) {
             pauseAllBgm();
         }
     }
 
     function triggerGameOver() {
+        if (isGameOver) return;
         isGameOver = true;
         clearInterval(scoreInterval);
         scoreInterval = null;
@@ -449,12 +518,14 @@
 
         let isNewRecord = false;
         if (score > highScore) {
-            highScore = score;
+            highScore = Math.floor(score);
+
             highScoreValEl.textContent = highScore;
             saveHighScore();
             isNewRecord = true;
         }
 
+        safeStreak = 0;
         catState = 'BITTEN';
         catEl.textContent = EMOJIS.BITTEN;
         catEl.style.backgroundColor = '#b71c1c';
@@ -469,6 +540,8 @@
         isGameOver = false;
         isBrushing = false;
         catState = 'SAFE';
+        safeStreak = 0;
+        dangerEdgeCount = 0;
 
         scoreValEl.textContent = score;
         catEl.textContent = EMOJIS.SAFE;
