@@ -230,6 +230,21 @@
         #restart-btn:active {
             background-color: #6d4c41;
         }
+        #home-btn {
+            margin-top: 15px;
+            margin-left: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #a1887f;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+        }
+        #home-btn:active {
+            background-color: #8d6e63;
+        }
     </style>
 </head>
 <body>
@@ -237,7 +252,10 @@
 <!-- ========== 加载界面 ========== -->
 <div id="loading-screen">
     <div id="loading-bar-track"><div id="loading-bar-fill"></div></div>
-    <div id="loading-text">Made by 木鸡先生Hen</div>
+    <div id="loading-text">Made by 木鸡先生Hen<br>
+        Idea by artbyeori<br>
+    打开一半音量游玩，体验更佳</div>
+
 </div>
 
 <!-- ===== 启动界面 ===== -->
@@ -264,6 +282,7 @@
     <div id="cat">🐱</div>
     <div id="status-text">长按给猫刷毛！</div>
     <button id="restart-btn">重新挑战</button>
+    <button id="home-btn">返回首页</button>
 </div>
 </div>
 
@@ -276,6 +295,28 @@
     bgmDanger.loop = true;
     bgmBitten.loop = false;
     bgmBonus.loop = true;
+    const bgmStart = new Audio('bgm/start.ogg');
+    bgmStart.loop = false;
+
+    // 首次用户交互时解锁音频上下文
+    let audioUnlocked = false;
+    function unlockAudioOnce() {
+        if (audioUnlocked) return;
+        audioUnlocked = true;
+        document.removeEventListener('pointerdown', unlockAudioOnce);
+        document.removeEventListener('touchstart', unlockAudioOnce);
+        // 用 AudioContext 解锁音频，同时播放下 start.ogg
+        try {
+            var _ctx = new (window.AudioContext || window.webkitAudioContext)();
+            _ctx.resume().then(function(){
+                _ctx.close();
+            });
+        } catch(e) {}
+        bgmStart.currentTime = 0;
+        bgmStart.play().catch(function(){});
+    }
+    document.addEventListener('pointerdown', unlockAudioOnce, { once: true });
+    document.addEventListener('touchstart', unlockAudioOnce, { once: true });
 
     let currentBgm = null;
 
@@ -326,6 +367,7 @@
     const highScoreValEl = document.getElementById('high-score-val');
     const statusTextEl = document.getElementById('status-text');
     const restartBtn = document.getElementById('restart-btn');
+    const homeBtn = document.getElementById('home-btn');
 
     const EMOJIS = {
         SAFE: '🐱',
@@ -588,6 +630,7 @@
         catEl.classList.remove('bonus');
         statusTextEl.textContent = isNewRecord ? '新纪录！你被猫猫吃掉了！' : '你被猫猫吃掉了！游戏结束。';
         restartBtn.style.display = 'inline-block';
+        homeBtn.style.display = 'inline-block';
         playBgm(bgmBitten);
     }
 
@@ -605,6 +648,7 @@
         catEl.classList.remove('bonus');
         statusTextEl.textContent = '长按给猫刷毛！';
         restartBtn.style.display = 'none';
+        homeBtn.style.display = 'none';
 
         stopAllBgm();
         startCatAI();
@@ -620,6 +664,23 @@
     window.addEventListener('touchcancel', stopBrushing);
 
     restartBtn.addEventListener('click', resetGame);
+
+    function goToHome() {
+        // 先清除猫AI定时器，防止 resetGame → startCatAI 的定时器在首页触发剧毒/奖励音效
+        clearTimeout(stateLogicTimeout);
+        stopAllBgm();
+        resetGame();
+        clearTimeout(stateLogicTimeout);
+        stopAllBgm();
+        gameWrapper.classList.remove('visible');
+        startScreen.classList.remove('hidden');
+        hasStarted = false;
+        homeBtn.style.display = 'none';
+        bgmStart.currentTime = 0;
+        bgmStart.play().catch(() => {});
+    }
+
+    homeBtn.addEventListener('click', goToHome);
 
     /* ===== 启动界面逻辑 ===== */
     const loadingScreen = document.getElementById("loading-screen");
@@ -638,6 +699,7 @@
         loadingScreen.classList.add("hidden");
         startScreen.classList.remove("hidden");
         // 触发启动界面的淡入动画
+        // 页面首次交互时已由 unlockAudioOnce 触发播放，此处不再重复尝试
     }
 
     /* 加载开始：条形进度条 + 文本淡入淡出 */
@@ -654,9 +716,18 @@
     function startGame() {
         if (hasStarted) return;
         hasStarted = true;
-        startScreen.classList.add("hidden");
-        gameWrapper.classList.add("visible");
-        startCatAI();
+        // 播放开场音效，延迟片刻再进入游戏
+        clearTimeout(stateLogicTimeout);
+        stopAllBgm();
+        bgmStart.currentTime = 0;
+        bgmStart.play().catch(function(){});
+        setTimeout(function() {
+            bgmStart.pause();
+            bgmStart.currentTime = 0;
+            startScreen.classList.add("hidden");
+            gameWrapper.classList.add("visible");
+            startCatAI();
+        }, 1800);
     }
 
     startBtn.addEventListener("click", startGame);
