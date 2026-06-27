@@ -137,6 +137,32 @@
             100% { opacity: 0; transform: translateY(-10px); }
         }
 
+        /* ========== 启动过渡进度条 ========== */
+        #start-loading-bar-track {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: rgba(141, 110, 99, 0.15);
+            z-index: 101;
+            display: none;
+            overflow: hidden;
+        }
+        #start-loading-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #a1887f, #8d6e63, #6d4c41);
+            border-radius: 0 3px 3px 0;
+        }
+        #start-loading-bar-fill.run {
+            animation: startBarAnim 1.8s ease forwards;
+        }
+        @keyframes startBarAnim {
+            from { width: 0%; }
+            to   { width: 100%; }
+        }
+
         /* game wrapper fade-in */
         #game-wrapper {
             opacity: 0;
@@ -264,6 +290,7 @@
     <div class="start-title">给猫猫刷毛毛</div>
     <div class="start-subtitle">长按给猫猫梳毛，小心别惹它生气！</div>
     <button id="start-btn">开始</button>
+    <div id="start-loading-bar-track"><div id="start-loading-bar-fill"></div></div>
 </div>
 
 <!-- ===== 游戏 ===== -->
@@ -707,6 +734,8 @@
         startScreen.classList.remove('hidden');
         hasStarted = false;
         homeBtn.style.display = 'none';
+        startLoadingBarTrack.style.display = 'none';
+        startLoadingBarFill.classList.remove('run');
         bgmStart.currentTime = 0;
         bgmStart.play().catch(() => {});
     }
@@ -717,6 +746,8 @@
     const loadingScreen = document.getElementById("loading-screen");
     const loadingBarFill = document.getElementById("loading-bar-fill");
     const loadingText = document.getElementById("loading-text");
+    const startLoadingBarTrack = document.getElementById("start-loading-bar-track");
+    const startLoadingBarFill = document.getElementById("start-loading-bar-fill");
     const startScreen = document.getElementById("start-screen");
     const startBtn = document.getElementById("start-btn");
     const gameWrapper = document.getElementById("game-wrapper");
@@ -744,9 +775,14 @@
         stopAllBgm();
         bgmStart.currentTime = 0;
         bgmStart.play().catch(function(){});
+        // 显示顶部过渡进度条
+        startLoadingBarTrack.style.display = 'block';
+        startLoadingBarFill.classList.add('run');
         setTimeout(function() {
             bgmStart.pause();
             bgmStart.currentTime = 0;
+            startLoadingBarTrack.style.display = 'none';
+            startLoadingBarFill.classList.remove('run');
             startScreen.classList.add("hidden");
             gameWrapper.classList.add("visible");
             startCatAI();
