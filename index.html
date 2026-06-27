@@ -118,7 +118,7 @@
             width: 0%;
             background: linear-gradient(90deg, #a1887f, #8d6e63, #6d4c41);
             border-radius: 0 3px 3px 0;
-            transition: width 2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            transition: width 0.3s ease;
         }
         #loading-text {
             font-size: 24px;
@@ -297,6 +297,37 @@
     bgmBonus.loop = true;
     const bgmStart = new Audio('bgm/start.mp3');
     bgmStart.loop = false;
+
+    // 预加载所有音频，全部就绪后再显示启动页
+    const allAudios = [bgmSafe, bgmDanger, bgmBitten, bgmBonus, bgmStart];
+    var loadStartTime = Date.now();
+    let loadedCount = 0;
+    allAudios.forEach(function(audio) {
+        audio.preload = 'auto';
+        audio.addEventListener('canplaythrough', function() {
+            if (this._ready) return;
+            this._ready = true;
+            loadedCount++;
+            loadingBarFill.style.width = (loadedCount / allAudios.length * 100) + '%';
+            if (loadedCount === allAudios.length) {
+                // 所有音频就绪，确保文本淡出动画至少完成后再显示启动页
+                var elapsed = Date.now() - loadStartTime;
+                var delay = Math.max(0, 2200 - elapsed);
+                setTimeout(showStartScreen, delay);
+            }
+        });
+        audio.addEventListener('error', function() {
+            if (this._ready) return;
+            this._ready = true;
+            loadedCount++;
+            loadingBarFill.style.width = (loadedCount / allAudios.length * 100) + '%';
+            if (loadedCount === allAudios.length) {
+                showStartScreen();
+            }
+        });
+    });
+    // 安全兜底：最多等 10 秒
+    setTimeout(showStartScreen, 10000);
 
     // 首次用户交互时解锁音频上下文
     let audioUnlocked = false;
@@ -703,15 +734,7 @@
     }
 
     /* 加载开始：条形进度条 + 文本淡入淡出 */
-    requestAnimationFrame(() => {
-        // 触发进度条动画
-        loadingBarFill.style.width = "100%";
-        // 触发文本动画
-        loadingText.classList.add("animate");
-    });
-
-    // 加载完成后显示启动界面
-    setTimeout(showStartScreen, 2600);
+    loadingText.classList.add("animate");
 
     function startGame() {
         if (hasStarted) return;
