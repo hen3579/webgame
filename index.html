@@ -306,6 +306,154 @@
             max-width: 320px;
         }
         .instruction .icon { color: #ffb74d; font-weight: bold; }
+
+        /* ========== 排行榜 ========== */
+        .leaderboard {
+            width: min(85vw, 320px);
+            background: rgba(62, 39, 24, 0.7);
+            border-radius: 12px;
+            padding: 12px 14px;
+            margin-top: 10px;
+            border: 2px solid #8d6e63;
+        }
+        .leaderboard-title {
+            text-align: center;
+            font-size: 15px;
+            color: #ffb74d;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+        .leaderboard-list {
+            font-size: 13px;
+            color: #d7ccc8;
+        }
+        .lb-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            border-bottom: 1px dashed rgba(141, 110, 99, 0.3);
+        }
+        .lb-row:last-child { border-bottom: none; }
+        .lb-rank {
+            width: 28px;
+            font-weight: bold;
+            color: #ffb74d;
+            text-align: center;
+        }
+        .lb-rank.gold   { color: #ffd54f; text-shadow: 0 0 6px rgba(255,213,79,0.5); }
+        .lb-rank.silver { color: #e0e0e0; }
+        .lb-rank.bronze { color: #ffab91; }
+        .lb-name {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            padding: 0 8px;
+            text-align: left;
+        }
+        .lb-score {
+            color: #fff3e0;
+            font-weight: bold;
+            min-width: 50px;
+            text-align: right;
+        }
+        .lb-empty {
+            text-align: center;
+            color: #8d6e63;
+            padding: 10px 0;
+            font-size: 12px;
+        }
+        .lb-my-rank {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #8d6e63;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #ffcc80;
+        }
+        .lb-loading {
+            text-align: center;
+            color: #8d6e63;
+            padding: 10px 0;
+            font-size: 12px;
+        }
+
+        /* ========== 提交分数弹窗 ========== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+        .modal-box {
+            background: #4e342e;
+            border: 3px solid #8d6e63;
+            border-radius: 16px;
+            padding: 24px 28px;
+            width: min(85vw, 320px);
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+        .modal-title {
+            font-size: 20px;
+            color: #ffb74d;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .modal-score {
+            font-size: 36px;
+            color: #fff3e0;
+            font-weight: bold;
+            margin: 10px 0;
+            text-shadow: 0 0 12px rgba(255,183,77,0.4);
+        }
+        .modal-hint {
+            font-size: 12px;
+            color: #a1887f;
+            margin-bottom: 14px;
+        }
+        .modal-input {
+            width: 100%;
+            padding: 10px 14px;
+            font-size: 16px;
+            border: 2px solid #8d6e63;
+            border-radius: 8px;
+            background: #3e2723;
+            color: #f7ebd3;
+            text-align: center;
+            outline: none;
+            margin-bottom: 14px;
+            font-family: inherit;
+        }
+        .modal-input:focus {
+            border-color: #ffb74d;
+        }
+        .modal-input::placeholder { color: #6d4c41; }
+        .modal-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        .modal-btns .big-btn {
+            font-size: 14px;
+            padding: 9px 18px;
+        }
+        .modal-result {
+            font-size: 14px;
+            color: #81c784;
+            margin-bottom: 12px;
+            min-height: 20px;
+        }
+        .modal-result.error { color: #ef5350; }
     </style>
 </head>
 <body>
@@ -334,6 +482,10 @@
             <img class="layer" src="image/Monitor/Cat/head/Safe.png" alt="">
         </div>
         <button class="big-btn" id="start-btn">开始游戏</button>
+        <div class="leaderboard" id="start-leaderboard">
+            <div class="leaderboard-title">🏆 排行榜 TOP 10</div>
+            <div class="lb-loading">加载中...</div>
+        </div>
         <div class="instruction">
             <span class="icon">🐱</span> Made by 木鸡先生Hen  Character from 怒九笑<br>
             Idea by artbyeori<br>
@@ -379,6 +531,21 @@
         <div class="btn-row" id="gameover-btns" style="display:none;">
             <button class="big-btn btn-secondary" id="restart-btn">重新挑战</button>
             <button class="big-btn btn-secondary" id="home-btn">返回首页</button>
+        </div>
+    </div>
+
+    <!-- 提交分数弹窗 -->
+    <div class="modal-overlay" id="submit-modal">
+        <div class="modal-box">
+            <div class="modal-title">游戏结束</div>
+            <div class="modal-score" id="modal-score-val">0</div>
+            <div class="modal-hint">输入昵称上榜（最多12字）</div>
+            <input type="text" class="modal-input" id="modal-name-input" placeholder="你的昵称" maxlength="12">
+            <div class="modal-result" id="modal-result"></div>
+            <div class="modal-btns">
+                <button class="big-btn" id="modal-submit-btn">提交分数</button>
+                <button class="big-btn btn-secondary" id="modal-skip-btn">跳过</button>
+            </div>
         </div>
     </div>
 
@@ -510,10 +677,20 @@
     const startBtn       = document.getElementById('start-btn');
     const startHighScore = document.getElementById('start-high-score');
     const loadingBarEl   = document.getElementById('loading-bar');
+    const leaderboardEl  = document.getElementById('start-leaderboard');
+    const submitModalEl  = document.getElementById('submit-modal');
+    const modalScoreEl   = document.getElementById('modal-score-val');
+    const modalNameInput = document.getElementById('modal-name-input');
+    const modalResultEl  = document.getElementById('modal-result');
+    const modalSubmitBtn = document.getElementById('modal-submit-btn');
+    const modalSkipBtn   = document.getElementById('modal-skip-btn');
 
     const loadingPage = document.getElementById('loading-page');
     const startPage   = document.getElementById('start-page');
     const gamePage    = document.getElementById('game-page');
+
+    const API_BASE = '';
+    let scoreSubmitted = false;
 
     let stateLogicTimeout = null;
     let warningTimeout    = null;
@@ -900,9 +1077,109 @@
         statusTextEl.textContent = isNewRecord ? '新纪录！你被猫猫吃掉了！' : '你被猫猫吃掉了！游戏结束。';
         gameoverBtns.style.display = 'flex';
         playBgm(bgmBitten);
+
+        scoreSubmitted = false;
+        showSubmitModal(finalScore);
+    }
+
+    function showSubmitModal(finalScore) {
+        modalScoreEl.textContent = finalScore;
+        modalNameInput.value = localStorage.getItem('catBrushPlayerName') || '';
+        modalResultEl.textContent = '';
+        modalResultEl.className = 'modal-result';
+        modalSubmitBtn.disabled = false;
+        modalSubmitBtn.textContent = '提交分数';
+        submitModalEl.classList.add('show');
+        setTimeout(() => modalNameInput.focus(), 100);
+    }
+
+    function hideSubmitModal() {
+        submitModalEl.classList.remove('show');
+    }
+
+    async function submitScore() {
+        const name = modalNameInput.value.trim();
+        if (!name) {
+            modalResultEl.textContent = '请输入昵称';
+            modalResultEl.className = 'modal-result error';
+            return;
+        }
+        const finalScore = Math.floor(score);
+        modalSubmitBtn.disabled = true;
+        modalSubmitBtn.textContent = '提交中...';
+        modalResultEl.textContent = '';
+
+        try {
+            const resp = await fetch(API_BASE + '/api/submit-score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, score: finalScore })
+            });
+            const data = await resp.json();
+            if (data.ok) {
+                localStorage.setItem('catBrushPlayerName', name);
+                scoreSubmitted = true;
+                if (data.rank) {
+                    modalResultEl.textContent = `提交成功！你的排名：第 ${data.rank} 位`;
+                } else {
+                    modalResultEl.textContent = '提交成功！';
+                }
+                modalSubmitBtn.textContent = '已提交';
+                setTimeout(() => hideSubmitModal(), 1200);
+                fetchLeaderboard();
+            } else {
+                modalResultEl.textContent = '提交失败，请重试';
+                modalResultEl.className = 'modal-result error';
+                modalSubmitBtn.disabled = false;
+                modalSubmitBtn.textContent = '提交分数';
+            }
+        } catch (e) {
+            modalResultEl.textContent = '网络错误，请重试';
+            modalResultEl.className = 'modal-result error';
+            modalSubmitBtn.disabled = false;
+            modalSubmitBtn.textContent = '提交分数';
+        }
+    }
+
+    async function fetchLeaderboard(myScore) {
+        try {
+            const url = API_BASE + '/api/leaderboard' + (typeof myScore === 'number' ? `?score=${myScore}` : '');
+            const resp = await fetch(url, { cache: 'no-store' });
+            const data = await resp.json();
+            renderLeaderboard(data);
+        } catch (e) {
+            leaderboardEl.innerHTML = '<div class="leaderboard-title">🏆 排行榜 TOP 10</div><div class="lb-empty">排行榜加载失败</div>';
+        }
+    }
+
+    function renderLeaderboard(data) {
+        if (!data || !data.ok) {
+            leaderboardEl.innerHTML = '<div class="leaderboard-title">🏆 排行榜 TOP 10</div><div class="lb-empty">暂无数据</div>';
+            return;
+        }
+        const top = data.top || [];
+        let html = '<div class="leaderboard-title">🏆 排行榜 TOP 10</div><div class="leaderboard-list">';
+        if (top.length === 0) {
+            html += '<div class="lb-empty">暂无记录，来做第一个吧！</div>';
+        } else {
+            top.forEach((item, i) => {
+                const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+                const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
+                const safeName = (item.player_name || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+                html += `<div class="lb-row"><span class="lb-rank ${rankClass}">${medal}</span><span class="lb-name">${safeName}</span><span class="lb-score">${item.score}</span></div>`;
+            });
+        }
+        html += '</div>';
+        if (data.myRank) {
+            html += `<div class="lb-my-rank"><span>你的排名</span><span>第 ${data.myRank} 位 / 共 ${data.totalPlayers} 人</span></div>`;
+        } else if (data.totalPlayers) {
+            html += `<div class="lb-my-rank"><span>总玩家</span><span>${data.totalPlayers} 人</span></div>`;
+        }
+        leaderboardEl.innerHTML = html;
     }
 
     function startGame() {
+        hideSubmitModal();
         clearAllTimers();
         score = 0;
         combo = 0;
@@ -911,6 +1188,7 @@
         catState = 'SAFE';
         brushedInThisWarning = false;
         comboAwardedThisWarning = false;
+        scoreSubmitted = false;
 
         scoreValEl.textContent = '0';
         updateComboDisplay(false);
@@ -925,6 +1203,7 @@
     }
 
     function goHome() {
+        hideSubmitModal();
         isGameOver = true;
         clearAllTimers();
         stopAllBgm();
@@ -932,6 +1211,7 @@
         gameoverBtns.style.display = 'none';
         if (highScore > 0) startHighScore.textContent = '最高分：' + highScore;
         showPage(startPage);
+        fetchLeaderboard();
     }
 
     /* ========== 事件绑定 ========== */
@@ -948,6 +1228,15 @@
     homeBtn.addEventListener('click',    goHome);
     startBtn.addEventListener('click',   startGame);
 
+    modalSubmitBtn.addEventListener('click', submitScore);
+    modalSkipBtn.addEventListener('click',   hideSubmitModal);
+    modalNameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') submitScore();
+    });
+    submitModalEl.addEventListener('click', (e) => {
+        if (e.target === submitModalEl) hideSubmitModal();
+    });
+
     /* ========== 启动流程 ========== */
     loadHighScore();
     setActorMode(false);
@@ -955,6 +1244,7 @@
     preloadAllImages(() => {
         setTimeout(() => {
             showPage(startPage);
+            fetchLeaderboard();
         }, 300);
     });
 </script>
