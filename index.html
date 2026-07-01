@@ -481,8 +481,10 @@
             <img class="layer" src="image/Monitor/MoodBubble/mood/safe/safe0.png" alt="">
             <img class="layer" src="image/Monitor/Cat/head/Safe.png" alt="">
         </div>
-        <button class="big-btn" id="start-btn">开始游戏</button>
-        <button class="big-btn btn-secondary" id="rank-btn" style="margin-top:8px;">🏆 查看排行榜</button>
+        <div class="btn-row" style="margin-top:0;">
+            <button class="big-btn" id="start-btn" style="flex:3;margin-top:0;">开始游戏</button>
+            <button class="big-btn btn-secondary" id="rank-btn" style="flex:1;font-size:13px;padding:12px 6px;margin-top:0;">🏆</button>
+        </div>
         <div class="instruction">
             <span class="icon">🐱</span> Made by 木鸡先生Hen  Character from 怒九笑<br>
             Idea by artbyeori<br>
@@ -1087,12 +1089,17 @@
         catState = 'BITTEN';
         render();
         setActorMode(false);
-        statusTextEl.textContent = isNewRecord ? '新纪录！你被猫猫吃掉了！' : '你被猫猫吃掉了！游戏结束。';
         gameoverBtns.style.display = 'flex';
         playBgm(bgmBitten);
 
         scoreSubmitted = false;
-        showSubmitModal(finalScore);
+
+        if (isNewRecord) {
+            statusTextEl.textContent = '🎉 新纪录！你被猫猫吃掉了！';
+            showSubmitModal(finalScore);
+        } else {
+            statusTextEl.textContent = '你被猫猫吃掉了！游戏结束。';
+        }
     }
 
     function showSubmitModal(finalScore) {
