@@ -482,10 +482,7 @@
             <img class="layer" src="image/Monitor/Cat/head/Safe.png" alt="">
         </div>
         <button class="big-btn" id="start-btn">开始游戏</button>
-        <div class="leaderboard" id="start-leaderboard">
-            <div class="leaderboard-title">🏆 排行榜 TOP 10</div>
-            <div class="lb-loading">加载中...</div>
-        </div>
+        <button class="big-btn btn-secondary" id="rank-btn" style="margin-top:8px;">🏆 查看排行榜</button>
         <div class="instruction">
             <span class="icon">🐱</span> Made by 木鸡先生Hen  Character from 怒九笑<br>
             Idea by artbyeori<br>
@@ -545,6 +542,19 @@
             <div class="modal-btns">
                 <button class="big-btn" id="modal-submit-btn">提交分数</button>
                 <button class="big-btn btn-secondary" id="modal-skip-btn">跳过</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 排行榜弹窗 -->
+    <div class="modal-overlay" id="rank-modal">
+        <div class="modal-box" style="width:min(90vw,360px);padding:20px 22px;">
+            <div class="modal-title">🏆 排行榜 TOP 10</div>
+            <div id="rank-modal-content" style="max-height:50vh;overflow-y:auto;margin:12px 0 4px;">
+                <div class="lb-loading">加载中...</div>
+            </div>
+            <div class="modal-btns" style="margin-top:14px;">
+                <button class="big-btn btn-secondary" id="rank-close-btn">关闭</button>
             </div>
         </div>
     </div>
@@ -677,7 +687,10 @@
     const startBtn       = document.getElementById('start-btn');
     const startHighScore = document.getElementById('start-high-score');
     const loadingBarEl   = document.getElementById('loading-bar');
-    const leaderboardEl  = document.getElementById('start-leaderboard');
+    const rankBtn        = document.getElementById('rank-btn');
+    const rankModalEl    = document.getElementById('rank-modal');
+    const rankModalContent = document.getElementById('rank-modal-content');
+    const rankCloseBtn   = document.getElementById('rank-close-btn');
     const submitModalEl  = document.getElementById('submit-modal');
     const modalScoreEl   = document.getElementById('modal-score-val');
     const modalNameInput = document.getElementById('modal-name-input');
@@ -1148,17 +1161,27 @@
             const data = await resp.json();
             renderLeaderboard(data);
         } catch (e) {
-            leaderboardEl.innerHTML = '<div class="leaderboard-title">🏆 排行榜 TOP 10</div><div class="lb-empty">排行榜加载失败</div>';
+            rankModalContent.innerHTML = '<div class="lb-empty">排行榜加载失败，请检查网络</div>';
         }
+    }
+
+    function openRankModal() {
+        rankModalContent.innerHTML = '<div class="lb-loading">加载中...</div>';
+        rankModalEl.classList.add('show');
+        fetchLeaderboard();
+    }
+
+    function closeRankModal() {
+        rankModalEl.classList.remove('show');
     }
 
     function renderLeaderboard(data) {
         if (!data || !data.ok) {
-            leaderboardEl.innerHTML = '<div class="leaderboard-title">🏆 排行榜 TOP 10</div><div class="lb-empty">暂无数据</div>';
+            rankModalContent.innerHTML = '<div class="lb-empty">暂无数据</div>';
             return;
         }
         const top = data.top || [];
-        let html = '<div class="leaderboard-title">🏆 排行榜 TOP 10</div><div class="leaderboard-list">';
+        let html = '<div class="leaderboard-list">';
         if (top.length === 0) {
             html += '<div class="lb-empty">暂无记录，来做第一个吧！</div>';
         } else {
@@ -1175,7 +1198,7 @@
         } else if (data.totalPlayers) {
             html += `<div class="lb-my-rank"><span>总玩家</span><span>${data.totalPlayers} 人</span></div>`;
         }
-        leaderboardEl.innerHTML = html;
+        rankModalContent.innerHTML = html;
     }
 
     function startGame() {
@@ -1204,6 +1227,7 @@
 
     function goHome() {
         hideSubmitModal();
+        closeRankModal();
         isGameOver = true;
         clearAllTimers();
         stopAllBgm();
@@ -1211,7 +1235,6 @@
         gameoverBtns.style.display = 'none';
         if (highScore > 0) startHighScore.textContent = '最高分：' + highScore;
         showPage(startPage);
-        fetchLeaderboard();
     }
 
     /* ========== 事件绑定 ========== */
@@ -1237,6 +1260,12 @@
         if (e.target === submitModalEl) hideSubmitModal();
     });
 
+    rankBtn.addEventListener('click', openRankModal);
+    rankCloseBtn.addEventListener('click', closeRankModal);
+    rankModalEl.addEventListener('click', (e) => {
+        if (e.target === rankModalEl) closeRankModal();
+    });
+
     /* ========== 启动流程 ========== */
     loadHighScore();
     setActorMode(false);
@@ -1244,7 +1273,6 @@
     preloadAllImages(() => {
         setTimeout(() => {
             showPage(startPage);
-            fetchLeaderboard();
         }, 300);
     });
 </script>
